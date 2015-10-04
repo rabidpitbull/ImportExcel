@@ -37,6 +37,7 @@ function Export-Excel {
         [Switch]$FreezeTopRow,
         [Switch]$AutoFilter,
         [Switch]$BoldTopRow,
+        [Switch]$WrapText,
         [string]$RangeName,
         [string]$TableName,
         [Object[]]$ConditionalFormat,
@@ -86,7 +87,7 @@ function Export-Excel {
                 throw $Error[0].Exception.Message
             }
         }
-        
+
         $firstTimeThru = $true
         $isDataTypeValueType=$false
         $pattern = "string|bool|byte|char|decimal|double|float|int|long|sbyte|short|uint|ulong|ushort"
@@ -100,7 +101,7 @@ function Export-Excel {
 
         if($isDataTypeValueType) {
             $ColumnIndex = 1
-            
+
             $targetCell = $ws.Cells[$Row, $ColumnIndex]
 
             $r=$null
@@ -113,6 +114,10 @@ function Export-Excel {
 
             switch ($TargetData.$Name) {
                 {$_ -is [datetime]} {$targetCell.Style.Numberformat.Format = "m/d/yy h:mm"}
+            }
+
+            if($WrapText) {
+                $targetCell.Style.WrapText = $true
             }
 
             $ColumnIndex += 1
@@ -150,9 +155,13 @@ function Export-Excel {
                     {$_ -is [datetime]} {$targetCell.Style.Numberformat.Format = "m/d/yy h:mm"}
                 }
 
+                if($WrapText) {
+                    $targetCell.Style.WrapText = $true
+                }
+
                 $ColumnIndex += 1
-            }       
-        } 
+            }
+        }
     }
 
     End {
