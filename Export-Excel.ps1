@@ -13,6 +13,7 @@ function Export-Excel {
         Remove-Item "c:\temp\test.xlsx" -ErrorAction Ignore
         Get-Service | Export-Excel "c:\temp\test.xlsx"  -Show -IncludePivotTable -PivotRows status -PivotData @{status='count'}
     #>
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
         $Path,
@@ -26,6 +27,7 @@ function Export-Excel {
         [System.Drawing.Color]$TitleBackgroundColor,
         [string[]]$PivotRows,
         [string[]]$PivotColumns,
+        [string[]]$PivotFilters,		
         $PivotData,
         [Switch]$PivotDataToColumn,
         [string]$Password,
@@ -99,11 +101,12 @@ function Export-Excel {
                 $ws.Cells[$Row, $StartColumn].Style.Fill.PatternType = $TitleFillPattern
 
                 #can only set TitleBackgroundColor if TitleFillPattern is something other than None
-                if($TitleBackgroundColor -AND ($TitleFillPattern -ne "None")) {
-                    $ws.Cells[$Row, $StartColumn].Style.Fill.BackgroundColor.SetColor($TitleBackgroundColor)
-                }
-                else {
-                    Write-Warning "Title Background Color ignored. You must set the TitleFillPattern parameter to a value other than 'None'. Try 'Solid'."
+                if ($TitleBackgroundColor) {
+                    if ($TitleFillPattern -ne "None")) {
+                        $ws.Cells[$Row, $StartColumn].Style.Fill.BackgroundColor.SetColor($TitleBackgroundColor)
+                    } else {
+                        Write-Warning "Title Background Color ignored. You must set the TitleFillPattern parameter to a value other than 'None'. Try 'Solid'."
+                    }
                 }
 
                 $Row += 1
@@ -231,7 +234,13 @@ function Export-Excel {
             }
         }
 
-        $startAddress=$ws.Dimension.Start.Address
+        $startAddress = $ws.Dimension.Start.Address
+        if($Title) {
+            if ($startAddress -eq "A1")	{
+                $startAddress = "A2"
+            }
+        }
+
         $dataRange="{0}:{1}" -f $startAddress, $ws.Dimension.End.Address
 
         Write-Debug "Data Range $dataRange"
@@ -245,6 +254,7 @@ function Export-Excel {
             #"$($StartRow),$($StartColumn),$($ws.Dimension.End.Row-$StartRow),$($Header.Count)"
 
             $csr=$StartRow
+            if($Title) { $csr += 1 }
             $csc=$StartColumn
             $cer=$ws.Dimension.End.Row #-$StartRow+1
             $cec=$script:Header.Count
@@ -264,18 +274,26 @@ function Export-Excel {
 
             $pivotTableDataName=$WorkSheetname + "PivotTableData"
 
-            if($Title) {$startAddress="A2"}
-            $pivotTable = $wsPivot.PivotTables.Add($wsPivot.Cells["A1"], $ws.Cells[$dataRange], $pivotTableDataName)
+            $PivotStartAddress = "A1"
+            if($PivotFilters) { $PivotStartAddress = "A3" }
+
+            $pivotTable = $wsPivot.PivotTables.Add($wsPivot.Cells[$PivotStartAddress], $ws.Cells[$dataRange], $pivotTableDataName)
+
+            if($PivotFilters) {
+                foreach ($PFilter in $PivotFilters)	{
+                    $null = $pivotTable.PageFields.Add($pivotTable.Fields[$PFilter])
+                }
+            }
 
             if($PivotRows) {
-                foreach ($Row in $PivotRows) {
-                    $null=$pivotTable.RowFields.Add($pivotTable.Fields[$Row])
+                foreach ($PRow in $PivotRows) {
+                    $null = $pivotTable.RowFields.Add($pivotTable.Fields[$PRow])
                 }
             }
 
             if($PivotColumns) {
-                foreach ($Column in $PivotColumns) {
-                    $null=$pivotTable.ColumnFields.Add($pivotTable.Fields[$Column])
+                foreach ($PColumn in $PivotColumns)	{
+                    $null = $pivotTable.ColumnFields.Add($pivotTable.Fields[$PColumn])
                 }
             }
 
